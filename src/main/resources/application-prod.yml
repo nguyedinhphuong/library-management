@@ -1,0 +1,8 @@
+server:
+  port: 8082
+
+open:
+  api:
+    serverUrl: https://api.domain.vn
+    serverName: Server PROD
+
