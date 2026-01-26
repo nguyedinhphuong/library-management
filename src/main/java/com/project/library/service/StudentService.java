@@ -5,6 +5,7 @@ import com.project.library.dto.request.student.UpdateStudentRequest;
 import com.project.library.dto.request.student.UpdateStudentStatusRequest;
 import com.project.library.dto.response.PageResponse;
 import com.project.library.dto.response.StudentResponse;
+import com.project.library.utils.BorrowStatus;
 
 public interface StudentService {
 
@@ -15,4 +16,5 @@ public interface StudentService {
 
     // search
     PageResponse<?> advanceStudents(int pageNo, int pageSize, String sortBy, String... search);
+    PageResponse<?> getStudentBorrowHistory(Long studentId, BorrowStatus status, int pageNo, int pageSize);
 }

@@ -1,15 +1,19 @@
 package com.project.library.service.impl;
 
+import com.project.library.converter.BorrowRecordMapper;
 import com.project.library.converter.StudentMapper;
 import com.project.library.dto.request.student.CreateStudentRequest;
 import com.project.library.dto.request.student.UpdateStudentRequest;
 import com.project.library.dto.request.student.UpdateStudentStatusRequest;
+import com.project.library.dto.response.BorrowRecordResponse;
 import com.project.library.dto.response.PageResponse;
 import com.project.library.dto.response.StudentResponse;
 import com.project.library.exception.BusinessException;
 import com.project.library.exception.ResourceNotFoundException;
+import com.project.library.model.BorrowRecord;
 import com.project.library.model.Student;
 import com.project.library.repository.StudentRepository;
+import com.project.library.repository.criteria.BorrowRecordSearchRepository;
 import com.project.library.repository.criteria.StudentSearchRepository;
 import com.project.library.service.StudentService;
 import com.project.library.utils.BorrowStatus;
@@ -24,12 +28,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.List;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class StudentServiceImpl implements StudentService {
     private final StudentRepository studentRepository;
     private final StudentSearchRepository studentSearchRepository;
+    private final BorrowRecordSearchRepository borrowRecordSearchRepository;
+
     @Override
     public StudentResponse create(CreateStudentRequest request) {
 
@@ -116,6 +124,41 @@ public class StudentServiceImpl implements StudentService {
             log.warn("Page size extends maxium, set to 100");
         }
         return studentSearchRepository.advanceSearchByCriteria(pageNo, pageSize, sortBy, search);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<?> getStudentBorrowHistory(Long studentId, BorrowStatus status, int pageNo, int pageSize) {
+
+        log.debug("Get student borrow history - studentId: {}, status: {}", studentId, status);
+
+        Student student = studentRepository.findById(studentId).orElseThrow(() -> new BusinessException("Student not found with id: " + studentId));
+
+        if(pageSize > 100) {
+            pageSize = 100;
+            log.warn("Page size exceeds maximum, set to 100");
+        }
+
+        PageResponse<?> pageResponse = borrowRecordSearchRepository.searchBorrowRecords(
+                studentId, null, status, null, null, pageNo, pageSize, "borrowDate:desc");
+
+        @SuppressWarnings("unchecked")
+        List<BorrowRecord> records = (List<BorrowRecord>) pageResponse.getItem();
+
+        List<BorrowRecordResponse> responses = records.stream()
+                .map(BorrowRecordMapper::toResponse)
+                .toList();
+
+        log.debug("Found {} borrow records for student {}", responses.size(), studentId);
+
+        return PageResponse.builder()
+                .pageNo(pageResponse.getPageNo())
+                .pageSize(pageResponse.getPageSize())
+                .totalPages(pageResponse.getTotalPages())
+                .totalElements(pageResponse.getTotalElements())
+                .item(responses)
+                .build();
+
     }
 
     // others

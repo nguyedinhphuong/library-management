@@ -88,10 +88,8 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
     @Override
     public BorrowRecordResponse getById(Long id) {
         log.debug("Get borrow record by id: {}", id);
-
         BorrowRecord record = borrowRecordRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("Borrow record not found with id: " + id));
-
         return BorrowRecordMapper.toResponse(record);
     }
 

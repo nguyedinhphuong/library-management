@@ -3,11 +3,14 @@ package com.project.library.controller;
 import com.project.library.dto.request.student.CreateStudentRequest;
 import com.project.library.dto.request.student.UpdateStudentRequest;
 import com.project.library.dto.request.student.UpdateStudentStatusRequest;
+import com.project.library.dto.response.PageResponse;
 import com.project.library.dto.response.ResponseData;
 import com.project.library.dto.response.StudentResponse;
 import com.project.library.exception.BusinessException;
 import com.project.library.service.StudentService;
+import com.project.library.utils.BorrowStatus;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -117,5 +120,36 @@ public class StudentController {
     ){
         log.info("Request get all of users with criteria and sort by and paging");
         return new ResponseData<>(HttpStatus.OK.value(), "students ", studentService.advanceStudents(pageNo, pageSize, sortBy, search));
+    }
+
+    @Operation(summary = "Get Student Borrow History",
+            description = "Get borrow history of a specific student")
+    @GetMapping("/{id}/history")
+    public ResponseEntity<ResponseData<PageResponse<?>>> getStudentHistory(
+            @PathVariable Long id,
+
+            @Parameter(description = "Filter by status (BORROWING, RETURNED)")
+            @RequestParam(required = false) BorrowStatus status,
+            @RequestParam(defaultValue = "0") int pageNo,
+            @RequestParam(defaultValue = "10") int pageSize
+            ){
+        try {
+            log.debug("API get student history called, studentId: {}", id);
+            PageResponse<?> response = studentService.getStudentBorrowHistory(
+                    id, status, pageNo, pageSize);
+            return ResponseEntity.ok(
+                    new ResponseData<>(HttpStatus.OK.value(),
+                            "Get student borrow history successfully", response));
+        } catch (BusinessException ex) {
+            log.warn("Business error when getting student history, id: {}, message: {}",
+                    id, ex.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+        } catch (Exception ex) {
+            log.error("Unexpected error when getting student history, id: {}", id, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                            "Internal server error"));
+        }
     }
 }
