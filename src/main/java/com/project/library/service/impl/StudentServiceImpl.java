@@ -2,11 +2,9 @@ package com.project.library.service.impl;
 
 import com.project.library.converter.BorrowRecordMapper;
 import com.project.library.converter.StudentMapper;
-import com.project.library.dto.request.student.CreateStudentRequest;
-import com.project.library.dto.request.student.IncreaseLimitRequest;
-import com.project.library.dto.request.student.UpdateStudentRequest;
-import com.project.library.dto.request.student.UpdateStudentStatusRequest;
+import com.project.library.dto.request.student.*;
 import com.project.library.dto.response.BorrowRecordResponse;
+import com.project.library.dto.response.BulkImportStudentResultResponse;
 import com.project.library.dto.response.PageResponse;
 import com.project.library.dto.response.StudentResponse;
 import com.project.library.exception.BusinessException;
@@ -30,7 +28,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @Slf4j
@@ -210,6 +211,115 @@ public class StudentServiceImpl implements StudentService {
                 id, oldLimit, request.getNewLimit(), request.getReason());
         return StudentMapper.toResponse(updated);
     }
+
+    @Override
+    @Transactional
+    public BulkImportStudentResultResponse bulkImportStudents(List<BulkImportStudentRequest> requests) {
+
+        log.info("Bulk import students - total records: {}", requests.size());
+
+        int total = requests.size();
+        int success = 0;
+        int failed = 0;
+        int skipped = 0;
+
+        List<String> errors = new ArrayList<>();
+        List<StudentResponse> importedStudents = new ArrayList<>();
+
+        // =====  Collect email & phone =====
+        List<String> allEmails = requests.stream()
+                .map(BulkImportStudentRequest::getEmail)
+                .toList();
+
+        List<String> allPhones = requests.stream()
+                .map(BulkImportStudentRequest::getPhone)
+                .toList();
+
+        // ===== Query DB 1 lần =====
+        Set<String> existingEmails = new HashSet<>(
+                studentRepository.findExistingEmails(allEmails)
+        );
+
+        Set<String> existingPhones = new HashSet<>(
+                studentRepository.findExistingPhones(allPhones)
+        );
+
+        // ===== 3. Detect duplicate trong file =====
+        Set<String> fileEmails = new HashSet<>();
+        Set<String> filePhones = new HashSet<>();
+
+        // ===== 4. Loop xử lý =====
+        for (int i = 0; i < total; i++) {
+            BulkImportStudentRequest req = requests.get(i);
+
+            try {
+                // Duplicate email trong file
+                if (!fileEmails.add(req.getEmail())) {
+                    skipped++;
+                    errors.add("Row " + (i + 1) + ": Email duplicated in file - SKIPPED");
+                    continue;
+                }
+
+                // Duplicate phone trong file
+                if (!filePhones.add(req.getPhone())) {
+                    skipped++;
+                    errors.add("Row " + (i + 1) + ": Phone duplicated in file - SKIPPED");
+                    continue;
+                }
+
+                // Email đã tồn tại DB
+                if (existingEmails.contains(req.getEmail())) {
+                    skipped++;
+                    errors.add("Row " + (i + 1) + ": Email already exists - SKIPPED");
+                    continue;
+                }
+
+                // Phone đã tồn tại DB
+                if (existingPhones.contains(req.getPhone())) {
+                    skipped++;
+                    errors.add("Row " + (i + 1) + ": Phone already exists - SKIPPED");
+                    continue;
+                }
+
+                // Generate student code
+                String studentCode = generateStudentCode(req.getMajor());
+
+                Student student = Student.builder()
+                        .studentCode(studentCode)
+                        .fullName(req.getFullName())
+                        .email(req.getEmail())
+                        .phone(req.getPhone())
+                        .major(req.getMajor())
+                        .yearOfStudy(req.getYearOfStudy())
+                        .gender(req.getGender())
+                        .status(StudentStatus.ACTIVE)
+                        .maxBorrowLimit(5)
+                        .build();
+
+                Student saved = studentRepository.save(student);
+                importedStudents.add(StudentMapper.toResponse(saved));
+                success++;
+
+            } catch (Exception e) {
+                failed++;
+                errors.add("Row " + (i + 1) + ": " + req.getEmail()
+                        + " - ERROR: " + e.getMessage());
+            }
+        }
+
+        log.info("Bulk import students completed - Success: {}, Failed: {}, Skipped: {}",
+                success, failed, skipped);
+
+        return BulkImportStudentResultResponse.builder()
+                .totalRecords(total)
+                .successCount(success)
+                .failedCount(failed)
+                .skippedCount(skipped)
+                .errors(errors)
+                .importedStudents(importedStudents)
+                .build();
+    }
+
 
     // others
     private String generateStudentCode(Major major) {

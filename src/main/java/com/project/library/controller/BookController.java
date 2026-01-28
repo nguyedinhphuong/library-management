@@ -225,4 +225,27 @@ public class BookController {
         }
 
     }
+
+    @Operation(summary = "Get Book Usage Analysis",
+            description = "Analyze book usage to identify books for archiving")
+    @GetMapping("/book-usage")
+    public ResponseEntity<ResponseData<List<BookUsageResponse>>> getBookUsageAnalysis() {
+        try {
+            log.debug("API get book usage analysis called");
+            List<BookUsageResponse> response = bookService.getBookUsageAnalysis();
+
+            long archiveCount = response.stream()
+                    .filter(r -> "ARCHIVE".equals(r.getRecommendation()))
+                    .count();
+
+            String message = String.format("Analyzed %d books. %d recommended for archiving.",
+                    response.size(), archiveCount);
+
+            return ResponseEntity.ok(new ResponseData<>(HttpStatus.OK.value(), message, response));
+        } catch (Exception ex) {
+            log.error("Unexpected error when getting book usage analysis", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
+        }
+    }
 }

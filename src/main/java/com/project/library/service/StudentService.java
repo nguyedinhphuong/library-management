@@ -1,10 +1,8 @@
 package com.project.library.service;
 
-import com.project.library.dto.request.student.CreateStudentRequest;
-import com.project.library.dto.request.student.IncreaseLimitRequest;
-import com.project.library.dto.request.student.UpdateStudentRequest;
-import com.project.library.dto.request.student.UpdateStudentStatusRequest;
+import com.project.library.dto.request.student.*;
 import com.project.library.dto.response.BorrowRecordResponse;
+import com.project.library.dto.response.BulkImportStudentResultResponse;
 import com.project.library.dto.response.PageResponse;
 import com.project.library.dto.response.StudentResponse;
 import com.project.library.utils.BorrowStatus;
@@ -25,4 +23,6 @@ public interface StudentService {
     List<BorrowRecordResponse> getCurrentBorrow(Long studentId);
 
     StudentResponse increaseLimit(Long id, IncreaseLimitRequest request);
+    BulkImportStudentResultResponse bulkImportStudents(List<BulkImportStudentRequest> requests);
+
 }

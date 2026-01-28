@@ -278,6 +278,47 @@ public class BookServiceImpl implements BookService {
                 .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookUsageResponse> getBookUsageAnalysis() {
+        log.debug("Get book usage analysis");
+
+        LocalDate sixMonthsAgo = LocalDate.now().minusMonths(6);
+        List<Object[]> results = bookRepository.getBookUsageStatistics(sixMonthsAgo);
+
+        List<BookUsageResponse> responses = new ArrayList<>();
+
+        for(Object[] result:results) {
+            Book book = (Book) result[0];
+            Long totalBorrowCount = ((Number) result[1]).longValue();
+            Long recentBorrowCount = ((Number) result[2]).longValue();
+
+            long totalDays = 180;
+            long borrowedDays = recentBorrowCount * 14 ; // assume 14 days per borrow
+            double usageRate = ((double) borrowedDays / totalDays) * 100;
+            usageRate = Math.min(usageRate, 100.0);
+
+            String recommendation;
+            if(totalBorrowCount == 0) recommendation = "ARCHIVE"; // never borrowed
+            else if (recentBorrowCount == 0) recommendation = "MONITOR";    // not borrowed recently
+            else if (usageRate > 50) recommendation = "KEEP"; // high usage
+            else recommendation = "MONITOR"; // low usage
+
+            responses.add(BookUsageResponse.builder()
+                    .bookId(book.getId())
+                    .title(book.getTitle())
+                    .author(book.getAuthor())
+                    .isbn(book.getIsbn())
+                    .totalBorrowCount(totalBorrowCount)
+                    .lastSixMonthsBorrowCount(recentBorrowCount)
+                    .usageRate(Math.round(usageRate * 100.0) / 100.0)
+                    .recommendation(recommendation)
+                    .build());
+        }
+        log.debug("Analyzed {} books", responses.size());
+        return responses;
+    }
+
     private LocalDate calculateStartDate(TimeRange timeRange) {
         LocalDate now = LocalDate.now();
         return switch (timeRange) {
