@@ -3,6 +3,7 @@ package com.project.library.service.impl;
 import com.project.library.converter.BorrowRecordMapper;
 import com.project.library.converter.StudentMapper;
 import com.project.library.dto.request.student.CreateStudentRequest;
+import com.project.library.dto.request.student.IncreaseLimitRequest;
 import com.project.library.dto.request.student.UpdateStudentRequest;
 import com.project.library.dto.request.student.UpdateStudentStatusRequest;
 import com.project.library.dto.response.BorrowRecordResponse;
@@ -12,6 +13,7 @@ import com.project.library.exception.BusinessException;
 import com.project.library.exception.ResourceNotFoundException;
 import com.project.library.model.BorrowRecord;
 import com.project.library.model.Student;
+import com.project.library.repository.BorrowRecordRepository;
 import com.project.library.repository.StudentRepository;
 import com.project.library.repository.criteria.BorrowRecordSearchRepository;
 import com.project.library.repository.criteria.StudentSearchRepository;
@@ -37,6 +39,7 @@ public class StudentServiceImpl implements StudentService {
     private final StudentRepository studentRepository;
     private final StudentSearchRepository studentSearchRepository;
     private final BorrowRecordSearchRepository borrowRecordSearchRepository;
+    private final BorrowRecordRepository borrowRecordRepository;
 
     @Override
     public StudentResponse create(CreateStudentRequest request) {
@@ -159,6 +162,53 @@ public class StudentServiceImpl implements StudentService {
                 .item(responses)
                 .build();
 
+    }
+
+    @Override
+    public List<BorrowRecordResponse> getCurrentBorrow(Long studentId) {
+        log.debug("Get current borrows for student: {}", studentId);
+
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new BusinessException("Student not found with id: " + studentId));
+
+        List<BorrowRecord> records = borrowRecordRepository.findByStudentIdAndStatus(studentId, BorrowStatus.BORROWING);
+        List<BorrowRecordResponse> responses = records.stream()
+                .map(BorrowRecordMapper::toResponse)
+                .sorted((a,b) -> a.getDueDate().compareTo(b.getDueDate()))
+                .toList();
+        log.debug("Found {} current borrows for student {}", responses.size(), studentId);
+        return responses;
+    }
+
+    @Override
+    public StudentResponse increaseLimit(Long id, IncreaseLimitRequest request) {
+        log.info("Increase limit request - studentId: {}, newLimit: {}", id, request.getNewLimit());
+        Student student = studentRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Student not found with id: " + id));
+
+        // New limit must be >= current borrowing
+        long currentBorrowing = student.getCurrentBorrowingCount();
+        if(request.getNewLimit() < currentBorrowing) {
+            throw new BusinessException(
+                    String.format("Cannot set limit to %d because student is currently borrowing %d book(s)",
+                            request.getNewLimit(), currentBorrowing)
+            );
+        }
+        //Cannot decrease limit
+        if(request.getNewLimit() < student.getMaxBorrowLimit()) {
+            throw new BusinessException(
+                    String.format("Cannot decrease limit. Current: %d, Requested: %d",
+                            student.getMaxBorrowLimit(), request.getNewLimit())
+            );
+        }
+
+        int oldLimit = student.getMaxBorrowLimit();
+        student.setMaxBorrowLimit(request.getNewLimit());
+
+        Student updated = studentRepository.save(student);
+        log.info("Limit increased - studentId: {}, oldLimit: {}, newLimit: {}, reason: {}",
+                id, oldLimit, request.getNewLimit(), request.getReason());
+        return StudentMapper.toResponse(updated);
     }
 
     // others

@@ -1,9 +1,8 @@
 package com.project.library.service;
 
-import com.project.library.dto.request.book.CreateBookRequest;
-import com.project.library.dto.request.book.UpdateBookRequest;
-import com.project.library.dto.request.book.UpdateBookStatusRequest;
+import com.project.library.dto.request.book.*;
 import com.project.library.dto.response.BookResponse;
+import com.project.library.dto.response.BulkImportResultResponse;
 import com.project.library.dto.response.MostBorrowedBookResponse;
 import com.project.library.dto.response.PageResponse;
 import com.project.library.utils.BookStatus;
@@ -20,5 +19,7 @@ public interface BookService {
 
     PageResponse<?> searchBooks(String search, Integer categoryId, BookStatus status, Boolean onlyAvailable, int pageNo, int pageSize, String sortBy);
     List<MostBorrowedBookResponse> getMostBorrowedBooks(int limit, TimeRange timeRange);
-
+    BookResponse adjustQuantity(Long id, AdjustQuantityRequest request);
+    List<BookResponse> getLowStockBooks(int threshold);
+    BulkImportResultResponse bulkImportBooks(List<BulkImportBookRequest> requests);
 }

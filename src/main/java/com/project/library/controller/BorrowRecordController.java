@@ -2,6 +2,8 @@ package com.project.library.controller;
 
 
 import com.project.library.dto.request.borrow.CreateBorrowRequest;
+import com.project.library.dto.request.borrow.RenewBorrowRequest;
+import com.project.library.dto.request.borrow.ReportLostRequest;
 import com.project.library.dto.request.borrow.ReturnBookRequest;
 import com.project.library.dto.response.BorrowRecordResponse;
 import com.project.library.dto.response.PageResponse;
@@ -140,6 +142,73 @@ public class BorrowRecordController {
                     new ResponseData<>(HttpStatus.OK.value(), "Get borrow records successfully", response));
         } catch (Exception ex) {
             log.error("Unexpected error when searching borrow records", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
+        }
+    }
+
+    @Operation(summary = "Renew Borrow", description = "Extend due date by 7 days")
+    @PostMapping("/{id}/renew")
+    public ResponseEntity<ResponseData<BorrowRecordResponse>> renewBorrow(
+            @PathVariable Long id,
+            @Valid @RequestBody(required = false)RenewBorrowRequest request
+            ) {
+        try {
+            log.info("API renew borrow called, borrowRecordId: {}", id);
+            RenewBorrowRequest req = request != null ? request : new RenewBorrowRequest();
+            BorrowRecordResponse response = borrowRecordService.renewBorrow(id, req);
+            return ResponseEntity.ok(
+                    new ResponseData<>(HttpStatus.OK.value(), "Borrow renewed successfully", response));
+        }catch (BusinessException ex) {
+            log.warn("Business error when renewing borrow, id: {}, message: {}", id, ex.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+        } catch (Exception ex) {
+            log.error("Unexpected error when renewing borrow, id: {}", id, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
+        }
+    }
+    @Operation(summary = "Get Due Soon Records", description = "Get borrows due within specified days")
+    @GetMapping("/due-soon")
+    public ResponseEntity<ResponseData<List<BorrowRecordResponse>>> getDueSoonRecords(
+            @Parameter(description = "Days ahead (1-30)")
+            @RequestParam(defaultValue = "3") int days) {
+        try {
+            log.debug("API get due soon records called, days: {}", days);
+            List<BorrowRecordResponse> response = borrowRecordService.getDueSoonRecords(days);
+            return ResponseEntity.ok(
+                    new ResponseData<>(HttpStatus.OK.value(),
+                            String.format("Found %d book(s) due within %d days", response.size(), days),
+                            response));
+        } catch (BusinessException ex) {
+            log.warn("Business error when getting due soon records, message: {}", ex.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+        } catch (Exception ex) {
+            log.error("Unexpected error when getting due soon records", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
+        }
+    }
+    @Operation(summary = "Report Lost Book", description = "Student reports book as lost")
+    @PostMapping("/{id}/report-lost")
+    public ResponseEntity<ResponseData<BorrowRecordResponse>> reportLost(
+            @PathVariable Long id,
+            @Valid @RequestBody ReportLostRequest request) {
+        try {
+            log.info("API report lost called, borrowRecordId: {}", id);
+            BorrowRecordResponse response = borrowRecordService.reportLost(id, request);
+            return ResponseEntity.ok(
+                    new ResponseData<>(HttpStatus.OK.value(),
+                            "Book reported as lost. Please contact library for compensation.",
+                            response));
+        } catch (BusinessException ex) {
+            log.warn("Business error when reporting lost, id: {}, message: {}", id, ex.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+        } catch (Exception ex) {
+            log.error("Unexpected error when reporting lost, id: {}", id, ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
         }

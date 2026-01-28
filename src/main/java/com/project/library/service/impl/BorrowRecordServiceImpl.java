@@ -3,6 +3,8 @@ package com.project.library.service.impl;
 
 import com.project.library.converter.BorrowRecordMapper;
 import com.project.library.dto.request.borrow.CreateBorrowRequest;
+import com.project.library.dto.request.borrow.RenewBorrowRequest;
+import com.project.library.dto.request.borrow.ReportLostRequest;
 import com.project.library.dto.request.borrow.ReturnBookRequest;
 import com.project.library.dto.response.BorrowRecordResponse;
 import com.project.library.dto.response.PageResponse;
@@ -165,5 +167,88 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
                 .totalElements(pageResponse.getTotalElements())
                 .item(responses)
                 .build();
+    }
+
+    @Override
+    public BorrowRecordResponse renewBorrow(Long id, RenewBorrowRequest request) {
+        log.info("Renew borrow request - borrowRecordId: {}", id);
+
+        // check có borrowRecord chưa
+        BorrowRecord record = borrowRecordRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Borrow record not found with id: " + id));
+
+        // must be currently borrowing
+        if(record.getStatus() != BorrowStatus.BORROWING){
+            throw new BusinessException("Can only renew books that are currently borrowed");
+        }
+        // not overdue
+        if(LocalDate.now().isAfter(record.getDueDate())){
+            throw new BusinessException("Cannot renew overdue books. Please return first.");
+        }
+        // not exceeded renewal limit
+        if(record.getRenewCount() >= record.getMaxRenewals()) {
+            throw new BusinessException(
+                    String.format("Maximum renewal limit reached (%d/%d). Cannot renew anymore.",
+                            record.getRenewCount(), record.getMaxRenewals())
+            );
+        }
+
+        record.setDueDate(record.getDueDate().plusDays(7)); // cho phép thêm 7 ngày nữa
+        record.setRenewCount(record.getRenewCount() + 1);
+
+        if(StringUtils.hasText(record.getNotes())) {
+            String existingNotes = record.getNotes();
+            String newNotes = StringUtils.hasText(existingNotes)
+                    ? existingNotes + " | Renewal: "+ request.getNote()
+                    : "Renewal: " + request.getNote();
+            record .setNotes(newNotes);
+        }
+        BorrowRecord updated = borrowRecordRepository.save(record);
+        log.info("Borrow renewed successfully - recordId: {}, newDueDate: {}, renewalCount: {}/{}",
+                updated.getId(), updated.getDueDate(), updated.getRenewCount(), updated.getMaxRenewals());
+        return BorrowRecordMapper.toResponse(updated) ;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BorrowRecordResponse> getDueSoonRecords(int days) {
+        log.debug("Get due soon records - within {} days", days);
+
+        if(days < 1 || days > 30) {
+            throw  new BusinessException("Days must be between 1 t0 30");
+        }
+        LocalDate today = LocalDate.now();
+        LocalDate targetDate = today.plusDays(days);
+        List<BorrowRecord> records = borrowRecordRepository.findDueSoonRecords(today, targetDate);
+        List<BorrowRecordResponse> responses = records.stream()
+                .map(BorrowRecordMapper::toResponse)
+                .toList();
+        log.debug("Found {} borrows due within {} days", responses.size(), days);
+        return responses;
+    }
+
+    @Override
+    public BorrowRecordResponse reportLost(Long id, ReportLostRequest request) {
+        log.info("Report lost book - borrowRecordId: {}", id);
+
+        BorrowRecord record = borrowRecordRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Borrow record not found with id: " + id));
+        if(record.getStatus() != BorrowStatus.BORROWING) {
+            throw new BusinessException("Can only report lost for books currently borrowed");
+        }
+        record.setStatus(BorrowStatus.RETURNED);
+        record.setReturnDate(LocalDate.now());
+        String lostNote = "LOST: "+ request.getReason();
+        record.setNotes(StringUtils.hasText(record.getNotes()) ? record.getNotes() + " | " + lostNote : lostNote);
+        // cap nhat sach
+        Book book = record.getBook();
+        book.setQuantityTotal(book.getQuantityTotal() - 1);
+        if(book.getQuantityTotal() <= 0) {
+            book.setStatus(BookStatus.LOST);
+        }
+        borrowRecordRepository.save(record);
+        bookRepository.save(book);
+        log.warn("Book lost: recordId: {}, book: {}, reason: {}", record.getId(), book.getTitle(), request.getReason());
+        return BorrowRecordMapper.toResponse(record);
     }
 }

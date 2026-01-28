@@ -1,13 +1,8 @@
 package com.project.library.controller;
 
 
-import com.project.library.dto.request.book.CreateBookRequest;
-import com.project.library.dto.request.book.UpdateBookRequest;
-import com.project.library.dto.request.book.UpdateBookStatusRequest;
-import com.project.library.dto.response.BookResponse;
-import com.project.library.dto.response.MostBorrowedBookResponse;
-import com.project.library.dto.response.PageResponse;
-import com.project.library.dto.response.ResponseData;
+import com.project.library.dto.request.book.*;
+import com.project.library.dto.response.*;
 import com.project.library.exception.BusinessException;
 import com.project.library.service.BookService;
 import com.project.library.utils.BookStatus;
@@ -164,5 +159,70 @@ public class BookController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
         }
+    }
+
+    @Operation(summary = "Adjust Book Quantity", description = "Increase or decrease book quantity")
+    @PutMapping("/{id}/adjust-quantity")
+    public ResponseEntity<ResponseData<BookResponse>> adjustQuantity(
+            @PathVariable Long id,
+            @Valid @RequestBody AdjustQuantityRequest request) {
+        try {
+            log.info("API adjust quantity called, bookId: {}, adjustment: {}", id, request.getAdjustment());
+            BookResponse response = bookService.adjustQuantity(id, request);
+            String message = request.getAdjustment() > 0
+                    ? String.format("Added %d book(s) successfully", request.getAdjustment())
+                    : String.format("Removed %d book(s) successfully", Math.abs(request.getAdjustment()));
+            return ResponseEntity.ok(new ResponseData<>(HttpStatus.OK.value(), message, response));
+        } catch (BusinessException ex) {
+            log.warn("Business error when adjusting quantity, id: {}, message: {}", id, ex.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+        } catch (Exception ex) {
+            log.error("Unexpected error when adjusting quantity, id: {}", id, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
+        }
+    }
+
+    @Operation(summary = "Get Low Stock Books", description = "Get books with low available quantity")
+    @GetMapping("/low-stock")
+    public ResponseEntity<ResponseData<List<BookResponse>>> getLowStockBooks(
+            @Parameter(description = "Stock threshold (0-10)")
+            @RequestParam(defaultValue = "2") int threshold) {
+        try {
+            log.debug("API get low stock books called, threshold: {}", threshold);
+            List<BookResponse> response = bookService.getLowStockBooks(threshold);
+            return ResponseEntity.ok(
+                    new ResponseData<>(HttpStatus.OK.value(),
+                            String.format("Found %d book(s) with low stock", response.size()),
+                            response));
+        } catch (BusinessException ex) {
+            log.warn("Business error when getting low stock books, message: {}", ex.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+        } catch (Exception ex) {
+            log.error("Unexpected error when getting low stock books", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
+        }
+    }
+
+    @Operation(summary = "Bulk Import Books", description = "Import multiple books at once")
+    @PostMapping("/bulk-import")
+    public ResponseEntity<ResponseData<BulkImportResultResponse>> bulkImportBooks (@Valid @RequestBody List<BulkImportBookRequest> requests) {
+        try{
+            log.info("API bulk import books called, total: {}" , requests.size());
+
+            if(requests.isEmpty()) return ResponseEntity.badRequest().body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), "Request list is empty"));
+            if(requests.size() > 1000) return ResponseEntity.badRequest().body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), "Cannot import more than 1000 books at once"));
+            BulkImportResultResponse response = bookService.bulkImportBooks(requests);
+            String message = String.format("Import completed: %d success, %d failed, %d skipped", response.getSuccessCount(), response.getFailedCount(), response.getSkippedCount());
+            return ResponseEntity.ok(new ResponseData<>(HttpStatus.OK.value(), message, response));
+        }catch(Exception e){
+            log.error("Unexpected error when bulk importing books ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Interval server error "));
+        }
+
     }
 }

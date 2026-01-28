@@ -1,13 +1,8 @@
 package com.project.library.service.impl;
 
 import com.project.library.converter.BookMapper;
-import com.project.library.dto.request.book.CreateBookRequest;
-import com.project.library.dto.request.book.UpdateBookRequest;
-import com.project.library.dto.request.book.UpdateBookStatusRequest;
-import com.project.library.dto.response.BookResponse;
-import com.project.library.dto.response.BookSummaryResponse;
-import com.project.library.dto.response.MostBorrowedBookResponse;
-import com.project.library.dto.response.PageResponse;
+import com.project.library.dto.request.book.*;
+import com.project.library.dto.response.*;
 import com.project.library.exception.BusinessException;
 import com.project.library.model.Book;
 import com.project.library.model.Category;
@@ -24,8 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -159,6 +154,130 @@ public class BookServiceImpl implements BookService {
         return response;
     }
 
+    @Override
+    @Transactional(readOnly = false)
+    public BookResponse adjustQuantity(Long id, AdjustQuantityRequest request) {
+        log.info("Adjust quantity request - bookId: {}, adjustment: {}", id, request.getAdjustment());
+        // check id
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Book not found with id: " + id));
+
+        int newQuantityTotal = book.getQuantityTotal() + request.getAdjustment(); // chi dieu chinh khong dong vào borrow truc tiep
+        int currentBorrowing = book.getQuantityTotal() - book.getQuantityAvailable(); // so sach dang muon khong thay doi khi ajustment
+
+        if(newQuantityTotal < currentBorrowing) {
+            throw new BusinessException(
+                    String.format("Cannot reduce quantity to %d because %d books are currently borrowed",
+                            newQuantityTotal, currentBorrowing)
+            );
+        }
+        if (newQuantityTotal < 0) {
+            throw new BusinessException("Quantity cannot be negative");
+        }
+        book.setQuantityTotal(newQuantityTotal);
+        book.setQuantityAvailable(newQuantityTotal - currentBorrowing);
+        Book updated = bookRepository.save(book);
+        bookRepository.flush();
+        log.info("Quantity adjusted - bookId: {}, old: {}, new: {}, reason: {}",
+                id, book.getQuantityTotal() - request.getAdjustment(),
+                updated.getQuantityTotal(), request.getReason());
+
+        return BookMapper.toResponse(updated);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookResponse> getLowStockBooks(int threshold) {
+        log.debug("Get low stock books - threshold: {}", threshold);
+
+        if(threshold < 0 || threshold > 10) {
+            throw new BusinessException("Threshold must be between 0 to 10");
+        }
+        List<Book> lowStockBooks = bookRepository.findLowStockBooks(threshold);
+        List<BookResponse> responses = lowStockBooks.stream()
+                .map(BookMapper::toResponse)
+                .toList();
+        log.debug("Found {} low stock books", responses.size());
+        return responses;
+    }
+
+    @Override
+    public BulkImportResultResponse bulkImportBooks(List<BulkImportBookRequest> requests) {
+        log.info("Bulk import book - total records: {}", requests.size());
+
+        int total = requests.size();
+        int success = 0;
+        int failed = 0;
+        int skipped = 0;
+
+        List<String> errors = new ArrayList<>();
+        List<BookResponse> importedBooks = new ArrayList<>();
+
+        List<String> allIsbns = requests.stream()
+                .map(BulkImportBookRequest::getIsbn)
+                .toList();
+        List<Integer> categoryIds = requests.stream()
+                .map(BulkImportBookRequest::getCategoryId)
+                .distinct()
+                .toList();
+
+        // query db duy nhất 1 lần
+        Set<String> existingIsbns = new HashSet<>(bookRepository.findExistingIsbns(allIsbns));
+
+        Map<Integer, Category> categoryMap = categoryRepository.findByIdIn(categoryIds)
+                .stream()
+                .collect(Collectors.toMap(Category::getId, c->c));
+
+        Set<String> fileIsbns = new HashSet<>();
+        for(int i = 0; i < total; i++) {
+            BulkImportBookRequest req = requests.get(i);
+
+            try{
+                if(!fileIsbns.add(req.getIsbn())) {
+                    skipped++;
+                    errors.add("Row "+ (i + 1) + ": ISBN duplicated in file - SKIPPED");
+                    continue;
+                }
+                // check trung isbn trong db
+                if(existingIsbns.contains(req.getIsbn())) {
+                    skipped++;
+                    errors.add("Row "+ (i + 1) + ": ISBN already exists - SKIPPED");
+                    continue;
+                }
+
+                // Check category tồn tại
+                Category category = categoryMap.get(req.getCategoryId());
+                if(category == null) throw new BusinessException("Category not found: " + req.getCategoryId());
+                Book book = Book.builder()
+                        .title(req.getTitle())
+                        .author(req.getAuthor())
+                        .isbn(req.getIsbn())
+                        .category(category)
+                        .quantityTotal(req.getQuantityTotal())
+                        .quantityAvailable(req.getQuantityTotal())
+                        .status(BookStatus.AVAILABLE)
+                        .build();
+
+                Book saved = bookRepository.save(book);
+                importedBooks.add(BookMapper.toResponse(saved));
+                success++;
+            } catch (Exception e) {
+                failed++;
+                errors.add("Row " + (i + 1) + ": ISBN " + req.getIsbn()
+                        + " - ERROR: " + e.getMessage());
+            }
+        }
+        log.info("Bulk import completed - Success: {}, Failed: {}, Skipped: {}", success, failed, skipped);
+        return BulkImportResultResponse.builder()
+                .totalRecords(total)
+                .successCount(success)
+                .failedCount(failed)
+                .skippedCount(skipped)
+                .errors(errors)
+                .importedBooks(importedBooks)
+                .build();
+    }
+
     private LocalDate calculateStartDate(TimeRange timeRange) {
         LocalDate now = LocalDate.now();
         return switch (timeRange) {
@@ -167,7 +286,6 @@ public class BookServiceImpl implements BookService {
             case ALL_TIME -> null;
         };
     }
-
     public Book getBookById(Long id) {
         return bookRepository.findById(id).orElseThrow(() -> new BusinessException("Book not found with id: " + id));
     }

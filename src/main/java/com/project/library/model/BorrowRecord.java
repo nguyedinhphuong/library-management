@@ -43,4 +43,11 @@ public class BorrowRecord extends AbstractEntity<Long> implements Serializable {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "renewal_count", nullable = false)
+    @Builder.Default
+    private Integer renewCount = 0;
+
+    @Column(name = "max_renewals", nullable = false)
+    @Builder.Default
+    private Integer maxRenewals = 1;
 }

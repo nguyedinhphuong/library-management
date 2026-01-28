@@ -1,8 +1,10 @@
 package com.project.library.controller;
 
 import com.project.library.dto.request.student.CreateStudentRequest;
+import com.project.library.dto.request.student.IncreaseLimitRequest;
 import com.project.library.dto.request.student.UpdateStudentRequest;
 import com.project.library.dto.request.student.UpdateStudentStatusRequest;
+import com.project.library.dto.response.BorrowRecordResponse;
 import com.project.library.dto.response.PageResponse;
 import com.project.library.dto.response.ResponseData;
 import com.project.library.dto.response.StudentResponse;
@@ -20,6 +22,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/students")
@@ -150,6 +154,49 @@ public class StudentController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
                             "Internal server error"));
+        }
+    }
+
+    @Operation(summary = "Get Current Borrows", description = "Get books currently borrowed by student")
+    @GetMapping("/{id}/current-borrows")
+    public ResponseEntity<ResponseData<List<BorrowRecordResponse>>> getCurrentBorrows(@PathVariable Long id) {
+        try {
+            log.debug("API get current borrows called, studentId: {}", id);
+            List<BorrowRecordResponse> response = studentService.getCurrentBorrow(id);
+            return ResponseEntity.ok(
+                    new ResponseData<>(HttpStatus.OK.value(),
+                            String.format("Student is currently borrowing %d book(s)", response.size()),
+                            response));
+        } catch (BusinessException ex) {
+            log.warn("Business error when getting current borrows, id: {}, message: {}", id, ex.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+        } catch (Exception ex) {
+            log.error("Unexpected error when getting current borrows, id: {}", id, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
+        }
+    }
+    @Operation(summary = "Increase Borrow Limit", description = "Increase student's max borrow limit")
+    @PutMapping("/{id}/increase-limit")
+    public ResponseEntity<ResponseData<StudentResponse>> increaseLimit(
+            @PathVariable Long id,
+            @Valid @RequestBody IncreaseLimitRequest request) {
+        try {
+            log.info("API increase limit called, studentId: {}, newLimit: {}", id, request.getNewLimit());
+            StudentResponse response = studentService.increaseLimit(id, request);
+            return ResponseEntity.ok(
+                    new ResponseData<>(HttpStatus.OK.value(),
+                            String.format("Borrow limit increased to %d successfully", request.getNewLimit()),
+                            response));
+        } catch (BusinessException ex) {
+            log.warn("Business error when increasing limit, id: {}, message: {}", id, ex.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+        } catch (Exception ex) {
+            log.error("Unexpected error when increasing limit, id: {}", id, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
         }
     }
 }

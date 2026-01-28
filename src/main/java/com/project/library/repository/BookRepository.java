@@ -24,4 +24,28 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             "GROUP BY b.book " +
             "ORDER BY COUNT(b) DESC")
     List<Object[]> findMostBorrowedBooks(@Param("startDate") LocalDate date, @Param("limit") int limit);
+
+    @Query("select b from Book b where b.quantityAvailable <= :threshold and b.status = 'AVAILABLE' order by b.quantityAvailable asc")
+    List<Book> findLowStockBooks(@Param("threshold") int threshold);
+
+    @Query("SELECT b.book as book, COUNT(b) as borrowCount, " +
+            "SUM(CASE WHEN b.status = 'BORROWING' THEN 1 ELSE 0 END) as currentBorrowing " +
+            "FROM BorrowRecord b " +
+            "WHERE b.borrowDate >= :startDate AND b.borrowDate <= :endDate " +
+            "GROUP BY b.book " +
+            "ORDER BY COUNT(b) DESC")
+    List<Object[]> findMostBorrowedBooksInPeriod(@Param("startDate") LocalDate startDate,
+                                                 @Param("endDate") LocalDate endDate,
+                                                 @Param("limit") int limit);
+
+    @Query("SELECT b.book as book, COUNT(b) as borrowCount, " +
+            "SUM(CASE WHEN b.status = 'BORROWING' THEN 1 ELSE 0 END) as currentBorrowing " +
+            "FROM BorrowRecord b " +
+            "WHERE (:startDate IS NULL OR b.borrowDate >= :startDate) " +
+            "GROUP BY b.book " +
+            "ORDER BY COUNT(b) DESC")
+    List<Object[]> findMostBorrowedBooks(@Param("startDate") LocalDate startDate);
+
+    @Query("select b.isbn from Book b where b.isbn in :isbns")
+    List<String> findExistingIsbns(@Param("isbns") List<String> isbns);
 }

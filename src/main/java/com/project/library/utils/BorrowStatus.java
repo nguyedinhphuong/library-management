@@ -11,5 +11,8 @@ public enum BorrowStatus {
     RETURNED,      // Đã trả
 
     @JsonProperty("overdue")
-    OVERDUE        // Quá hạn
+    OVERDUE,// Quá hạn
+
+    @JsonProperty("lost")
+    LOST
 }
