@@ -200,22 +200,18 @@ public class StudentController {
             @Valid @RequestBody List<BulkImportStudentRequest> requests) {
         try {
             log.info("API bulk import students called, total: {}", requests.size());
-
             if (requests.isEmpty()) {
                 return ResponseEntity.badRequest()
                         .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), "Request list is empty"));
             }
-
             if (requests.size() > 1000) {
                 return ResponseEntity.badRequest()
                         .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(),
                                 "Cannot import more than 1000 students at once"));
             }
-
             BulkImportStudentResultResponse response = studentService.bulkImportStudents(requests);
             String message = String.format("Import completed: %d success, %d failed, %d skipped",
                     response.getSuccessCount(), response.getFailedCount(), response.getSkippedCount());
-
             return ResponseEntity.ok(new ResponseData<>(HttpStatus.OK.value(), message, response));
         } catch (Exception ex) {
             log.error("Unexpected error when bulk importing students", ex);

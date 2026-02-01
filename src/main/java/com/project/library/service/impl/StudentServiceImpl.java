@@ -9,9 +9,13 @@ import com.project.library.dto.response.PageResponse;
 import com.project.library.dto.response.StudentResponse;
 import com.project.library.exception.BusinessException;
 import com.project.library.exception.ResourceNotFoundException;
+import com.project.library.model.Achievement;
 import com.project.library.model.BorrowRecord;
 import com.project.library.model.Student;
+import com.project.library.model.StudentAchievement;
+import com.project.library.repository.AchievementRepository;
 import com.project.library.repository.BorrowRecordRepository;
+import com.project.library.repository.StudentAchievementRepository;
 import com.project.library.repository.StudentRepository;
 import com.project.library.repository.criteria.BorrowRecordSearchRepository;
 import com.project.library.repository.criteria.StudentSearchRepository;
@@ -41,6 +45,8 @@ public class StudentServiceImpl implements StudentService {
     private final StudentSearchRepository studentSearchRepository;
     private final BorrowRecordSearchRepository borrowRecordSearchRepository;
     private final BorrowRecordRepository borrowRecordRepository;
+    private final AchievementRepository achievementRepository;
+    private final StudentAchievementRepository studentAchievementRepository;
 
     @Override
     public StudentResponse create(CreateStudentRequest request) {
@@ -55,6 +61,18 @@ public class StudentServiceImpl implements StudentService {
             log.debug("Generated student code: {} ", studentCode);
             Student student = StudentMapper.toEntity(request, studentCode);
             Student saved = studentRepository.save(student);
+
+            // thêm achieve
+            List<Achievement> achievements = achievementRepository.findByIsActiveTrue();
+            List<StudentAchievement> progressList = achievements.stream()
+                    .map(ach -> StudentAchievement.builder()
+                            .student(student)
+                            .achievement(ach)
+                            .progress(0)
+                            .earnAt(null)
+                            .build())
+                            .toList();
+            studentAchievementRepository.saveAll(progressList);
             log.info("Student created successfully, id = {}, studentCode = {}",
                     saved.getId(), saved.getStudentCode());
             return StudentMapper.toResponse(saved);

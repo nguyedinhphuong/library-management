@@ -46,5 +46,4 @@ public class Book extends AbstractEntity<Long> implements Serializable {
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL)
     private List<BorrowRecord> borrowRecords = new ArrayList<>();
 
-    /* ===== Business methods giữ nguyên ===== */
 }
