@@ -48,4 +48,12 @@ public interface BookRepository extends JpaRepository<Book, Long> {
 
     @Query("select b.isbn from Book b where b.isbn in :isbns")
     List<String> findExistingIsbns(@Param("isbns") List<String> isbns);
+
+    @Query("SELECT b, COUNT(br), " +
+            "SUM(CASE WHEN br.borrowDate >= :sixMonthsAgo THEN 1 ELSE 0 END) " +
+            "FROM Book b " +
+            "LEFT JOIN b.borrowRecords br " +
+            "GROUP BY b " +
+            "ORDER BY COUNT(br) DESC")
+    List<Object[]> getBookUsageStatistics(@Param("sixMonthsAgo") LocalDate sixMonthsAgo);
 }

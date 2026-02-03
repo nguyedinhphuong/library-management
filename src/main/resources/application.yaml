@@ -2,7 +2,7 @@ spring:
   application:
     name: library
   profiles:
-    active: dev
+    active: test
 springdoc:
   api-docs:
     enabled: true
@@ -15,6 +15,7 @@ open:
     version: "1.0.0"
     description: "api library document"
     serverName: "Default Server"
+
 logging:
   level:
     com.project.library: DEBUG

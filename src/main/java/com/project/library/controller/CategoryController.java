@@ -2,11 +2,13 @@ package com.project.library.controller;
 
 
 import com.project.library.dto.request.category.CreateCategoryRequest;
+import com.project.library.dto.response.BookResponse;
 import com.project.library.dto.response.CategoryResponse;
 import com.project.library.dto.response.ResponseData;
 import com.project.library.exception.BusinessException;
 import com.project.library.service.CategoryService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -59,6 +61,29 @@ public class CategoryController {
         } catch (Exception ex) {
             log.error("Unexpected error when fetching categories", ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
+        }
+    }
+    @Operation(summary = "Get Books by Category", description = "Get all books in a specific category")
+    @GetMapping("/{id}/books")
+    public ResponseEntity<ResponseData<List<BookResponse>>> getBooksByCategory(
+            @PathVariable Integer id,
+            @Parameter(description = "Only show available books")
+            @RequestParam(required = false) Boolean onlyAvailable) {
+        try {
+            log.debug("API get books by category called, categoryId: {}", id);
+            List<BookResponse> response = categoryService.getBooksByCategory(id, onlyAvailable);
+            return ResponseEntity.ok(
+                    new ResponseData<>(HttpStatus.OK.value(),
+                            String.format("Found %d book(s) in this category", response.size()),
+                            response));
+        } catch (BusinessException ex) {
+            log.warn("Business error when getting books by category, id: {}, message: {}", id, ex.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+        } catch (Exception ex) {
+            log.error("Unexpected error when getting books by category, id: {}", id, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
         }
     }
 }

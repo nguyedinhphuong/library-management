@@ -20,6 +20,10 @@ public class BookResponse {
     private Integer quantityAvailable;
     private BookStatus status;
     private boolean isAvailable;
+
+    private String coverImageUrl;
+    private Boolean hasCoverImage;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

@@ -170,6 +170,7 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
     }
 
     @Override
+    @Transactional
     public BorrowRecordResponse renewBorrow(Long id, RenewBorrowRequest request) {
         log.info("Renew borrow request - borrowRecordId: {}", id);
 
@@ -228,6 +229,7 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
     }
 
     @Override
+    @Transactional
     public BorrowRecordResponse reportLost(Long id, ReportLostRequest request) {
         log.info("Report lost book - borrowRecordId: {}", id);
 
