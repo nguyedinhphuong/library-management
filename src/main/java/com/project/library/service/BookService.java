@@ -4,6 +4,7 @@ import com.project.library.dto.request.book.*;
 import com.project.library.dto.response.*;
 import com.project.library.utils.BookStatus;
 import com.project.library.utils.TimeRange;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -21,4 +22,6 @@ public interface BookService {
     BulkImportResultResponse bulkImportBooks(List<BulkImportBookRequest> requests);
     List<BookUsageResponse> getBookUsageAnalysis();
 
+    BookResponse uploadCoverImage(Long bookId, MultipartFile file);
+    BookResponse deleteCoverImage(Long bookId);
 }

@@ -22,6 +22,8 @@ public class BookMapper {
                 .quantityTotal(request.getQuantityTotal())
                 .quantityAvailable(request.getQuantityTotal())
                 .status(BookStatus.AVAILABLE)
+                .coverImageUrl(null)
+                .coverImagePublicId(null)
                 .build();
     }
 
@@ -42,6 +44,8 @@ public class BookMapper {
                 .quantityAvailable(book.getQuantityAvailable())
                 .status(book.getStatus())
                 .isAvailable(book.getQuantityAvailable() > 0 && book.getStatus() == BookStatus.AVAILABLE)
+                .coverImageUrl(book.getCoverImageUrl())
+                .hasCoverImage(book.hasCoverImage())
                 .createdAt(book.getCreatedAt())
                 .updatedAt(book.getUpdatedAt())
                 .build();

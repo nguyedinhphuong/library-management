@@ -1,5 +1,6 @@
 package com.project.library.service.impl;
 
+import com.project.library.common.ImageUpLoadResult;
 import com.project.library.converter.BookMapper;
 import com.project.library.dto.request.book.*;
 import com.project.library.dto.response.*;
@@ -10,6 +11,7 @@ import com.project.library.repository.BookRepository;
 import com.project.library.repository.CategoryRepository;
 import com.project.library.repository.criteria.BookSearchRepository;
 import com.project.library.service.BookService;
+import com.project.library.service.CloudinaryService;
 import com.project.library.utils.BookStatus;
 import com.project.library.utils.TimeRange;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -30,6 +33,9 @@ public class BookServiceImpl implements BookService {
     private final BookRepository bookRepository;
     private final CategoryRepository categoryRepository;
     private final BookSearchRepository bookSearchRepository;
+    private final CloudinaryService cloudinaryService;
+
+    private static final String BOOK_COVER_FOLDER = "library/books";
 
     @Override
     @Transactional
@@ -317,6 +323,42 @@ public class BookServiceImpl implements BookService {
         }
         log.debug("Analyzed {} books", responses.size());
         return responses;
+    }
+
+    @Override
+    @Transactional
+    public BookResponse uploadCoverImage(Long bookId, MultipartFile file) {
+        log.info("Upload cover image request - bookId: {}, fileName: {}", bookId, file.getOriginalFilename());
+        Book book = getBookById(bookId);
+        ImageUpLoadResult uploadResult = cloudinaryService.uploadImage(file,BOOK_COVER_FOLDER);
+        if(book.hasCoverImage()){
+            log.info("Deleting old cover image - publicId: {}", book.getCoverImagePublicId());
+            cloudinaryService.deleteImage(book.getCoverImagePublicId());
+        }
+        book.setCoverImageUrl(uploadResult.getUrl());
+        book.setCoverImagePublicId(uploadResult.getPublicId());
+
+        Book updated = bookRepository.save(book);
+        log.info("Cover image uploaded successfully - bookId: {}, url: {}",
+                bookId, uploadResult.getUrl());
+        return BookMapper.toResponse(updated);
+    }
+
+    @Override
+    public BookResponse deleteCoverImage(Long bookId) {
+        log.info("Delete cover image request - bookId: {}", bookId);
+        Book book = getBookById(bookId);
+
+        if(!book.hasCoverImage()){
+            log.warn("Book does not have cover image - bookId: {} ", bookId);
+            throw new BusinessException("Book does not have a cover image");
+        }
+        cloudinaryService.deleteImage(book.getCoverImagePublicId());
+        book.clearCoverImage();
+        Book updated = bookRepository.save(book);
+        log.info("Cover image deleted successfully - bookId: {}", bookId);
+
+        return BookMapper.toResponse(updated);
     }
 
     private LocalDate calculateStartDate(TimeRange timeRange) {

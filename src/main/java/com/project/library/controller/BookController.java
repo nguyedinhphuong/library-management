@@ -14,9 +14,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -30,16 +32,16 @@ public class BookController {
 
     private final BookService bookService;
 
-    @Operation(summary = "Create book", description =  " Add new book to library")
+    @Operation(summary = "Create book", description = " Add new book to library")
     @PostMapping("/")
-    public ResponseEntity<ResponseData<BookResponse>> createBook(@Valid @RequestBody CreateBookRequest request){
-        try{
+    public ResponseEntity<ResponseData<BookResponse>> createBook(@Valid @RequestBody CreateBookRequest request) {
+        try {
             log.info("API create book called, title = {} ", request.getTitle());
             BookResponse response = bookService.create(request);
             return ResponseEntity
                     .status(HttpStatus.CREATED)
                     .body(new ResponseData<>(HttpStatus.CREATED.value(), "Book created successfully ", response));
-        }catch (BusinessException ex) {
+        } catch (BusinessException ex) {
             log.warn("Business error when creating book, message = {}", ex.getMessage());
             return ResponseEntity.badRequest()
                     .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
@@ -49,6 +51,7 @@ public class BookController {
                     .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
         }
     }
+
     @Operation(summary = "Get Book by ID")
     @GetMapping("/{id}")
     public ResponseEntity<ResponseData<BookResponse>> getBookById(@PathVariable Long id) {
@@ -109,6 +112,7 @@ public class BookController {
                     .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
         }
     }
+
     @Operation(summary = "Search Books", description = "Search and filter books with pagination")
     @GetMapping
     public ResponseEntity<ResponseData<PageResponse<?>>> searchBooks(
@@ -127,7 +131,7 @@ public class BookController {
             @RequestParam(defaultValue = "0") int pageNo,
             @RequestParam(defaultValue = "10") int pageSize,
             @RequestParam(defaultValue = "id:desc") String sortBy
-    ){
+    ) {
         try {
             log.debug("API search books called");
             PageResponse<?> response = bookService.searchBooks(search, categoryId, status,
@@ -140,6 +144,7 @@ public class BookController {
                     .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
         }
     }
+
     @Operation(summary = "Get Most Borrowed Books", description = "Get top books by borrow count")
     @GetMapping("/most-borrowed")
     public ResponseEntity<ResponseData<List<MostBorrowedBookResponse>>> getMostBorrowedBooks(
@@ -209,16 +214,18 @@ public class BookController {
 
     @Operation(summary = "Bulk Import Books", description = "Import multiple books at once")
     @PostMapping("/bulk-import")
-    public ResponseEntity<ResponseData<BulkImportResultResponse>> bulkImportBooks (@Valid @RequestBody List<BulkImportBookRequest> requests) {
-        try{
-            log.info("API bulk import books called, total: {}" , requests.size());
+    public ResponseEntity<ResponseData<BulkImportResultResponse>> bulkImportBooks(@Valid @RequestBody List<BulkImportBookRequest> requests) {
+        try {
+            log.info("API bulk import books called, total: {}", requests.size());
 
-            if(requests.isEmpty()) return ResponseEntity.badRequest().body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), "Request list is empty"));
-            if(requests.size() > 1000) return ResponseEntity.badRequest().body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), "Cannot import more than 1000 books at once"));
+            if (requests.isEmpty())
+                return ResponseEntity.badRequest().body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), "Request list is empty"));
+            if (requests.size() > 1000)
+                return ResponseEntity.badRequest().body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), "Cannot import more than 1000 books at once"));
             BulkImportResultResponse response = bookService.bulkImportBooks(requests);
             String message = String.format("Import completed: %d success, %d failed, %d skipped", response.getSuccessCount(), response.getFailedCount(), response.getSkippedCount());
             return ResponseEntity.ok(new ResponseData<>(HttpStatus.OK.value(), message, response));
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("Unexpected error when bulk importing books ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Interval server error "));
@@ -246,6 +253,69 @@ public class BookController {
             log.error("Unexpected error when getting book usage analysis", ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
+        }
+    }
+
+    @Operation(
+            summary = "Upload Book Cover Image",
+            description = "Upload or update cover image for a book. Supported formats: JPEG, PNG, WEBP. Max size: 5MB"
+    )
+    @PostMapping(value = "/{id}/cover", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ResponseData<BookResponse>> uploadCoverImage(
+            @Parameter(description = "Book ID")
+            @PathVariable Long id,
+            @Parameter(description = "Image file (JPEG/PNG/WEBP, max 5MB)")
+            @RequestParam("images") MultipartFile image) {
+        try {
+            log.info("API upload cover image called - bookId: {}, fileName: {}, size: {} bytes",
+                    id, image.getOriginalFilename(), image.getSize());
+
+            BookResponse response = bookService.uploadCoverImage(id, image);
+
+            return ResponseEntity.ok(
+                    new ResponseData<>(HttpStatus.OK.value(),
+                            "Cover image uploaded successfully",
+                            response));
+        } catch (BusinessException ex) {
+            log.warn("Business error uploading cover - bookId: {}, message: {}",
+                    id, ex.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+        } catch (Exception ex) {
+            log.error("Unexpected error uploading cover - bookId: {}", id, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                            "Internal server error"));
+        }
+    }
+
+    @Operation(
+            summary = "Delete Book Cover Image",
+            description = "Remove the cover image from a book"
+    )
+    @DeleteMapping("/{id}/cover")
+    public ResponseEntity<ResponseData<BookResponse>> deleteCoverImage(
+            @Parameter(description = "Book ID")
+            @PathVariable Long id) {
+        try {
+            log.info("API delete cover image called - bookId: {}", id);
+
+            BookResponse response = bookService.deleteCoverImage(id);
+
+            return ResponseEntity.ok(
+                    new ResponseData<>(HttpStatus.OK.value(),
+                            "Cover image deleted successfully",
+                            response));
+        } catch (BusinessException ex) {
+            log.warn("Business error deleting cover - bookId: {}, message: {}",
+                    id, ex.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+        } catch (Exception ex) {
+            log.error("Unexpected error deleting cover - bookId: {}", id, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ResponseData<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                            "Internal server error"));
         }
     }
 }

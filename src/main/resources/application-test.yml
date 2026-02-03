@@ -24,6 +24,19 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 5MB
+      max-request-size: 10MB
+      file-size-threshold: 2KB
+
+cloudinary:
+  cloud-name: diqhmct8x
+  api-key: 882975888995683
+  api-secret: pPe_4nsUGrKbyLBBl4q4gAPPnY4
+  folder: library/books/
+
 springdoc:
   api-docs:
     enabled: true
@@ -37,3 +50,8 @@ open:
     description: "API for TEST / sandbox environment"
     title: "API Library Document"
     version: "1.0.0"
+
+logging:
+  level:
+    com.project.library.service.impl.CloudinaryServiceImpl: DEBUG
+    com.cloudinary: INFO
