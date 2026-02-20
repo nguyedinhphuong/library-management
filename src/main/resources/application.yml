@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: Phuong
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+open:
+  api:
+    title: "API Document"
+    version: "1.0.0"
+    description: "Mo ta cac API"
+    serverName: "Default Server"

@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/library}
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/postgres}
     username: ${POSTGRES_USER:postgres}
     password: ${POSTGRES_PASSWORD:123456}
     driver-class-name: org.postgresql.Driver
@@ -23,6 +23,10 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  redis:
+    host: localhost
+    port: 6379
+
 springdoc:
   api-docs:
     enabled: true
@@ -31,8 +35,14 @@ springdoc:
 
 open:
   api:
+    description: "API cho moi truong DEV"
+    serverUrl: "http://localhost:8080"
     serverName: "Server DEV"
-    serverUrl: "http://localhost:${server.port}"
-    description: "API for DEV environment"
-    title: "API Library Document"
-    version: "1.0.0"
+
+jwt:
+  expiryHour: 1
+  expiryDay: 12
+  # secretKey: lm2XAzpcGcvO01wfoi24eE2KlSSkFePFR5Z9vcrLWSs=
+  # refreshKey: vNeBW9paRM484PJvLWrRSZcGyWuIF6DfU9k/h712iZ0=
+  # resetKey: vNeBW9paRM484PJvLWrRSZcGyWuIF6DfU9k/h712iZ0=
+
