@@ -8,5 +8,12 @@ public enum UserStatus {
     ACTIVE,        // Tài khoản hoạt động
 
     @JsonProperty("inactive")
-    INACTIVE       // Tài khoản bị vô hiệu hóa
+    INACTIVE,      // Tài khoản bị vô hiệu hóa
+
+    @JsonProperty("locked")
+    LOCKED,
+
+    @JsonProperty("pending")
+    PENDING
+
 }

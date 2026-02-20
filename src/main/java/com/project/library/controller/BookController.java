@@ -1,10 +1,13 @@
 package com.project.library.controller;
 
 
+import com.cloudinary.Cloudinary;
+import com.project.library.common.ImageUpLoadResult;
 import com.project.library.dto.request.book.*;
 import com.project.library.dto.response.*;
 import com.project.library.exception.BusinessException;
 import com.project.library.service.BookService;
+import com.project.library.service.CloudinaryService;
 import com.project.library.utils.BookStatus;
 import com.project.library.utils.TimeRange;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,6 +34,7 @@ import java.util.List;
 public class BookController {
 
     private final BookService bookService;
+    private final CloudinaryService cloudinaryService;
 
     @Operation(summary = "Create book", description = " Add new book to library")
     @PostMapping("/")
@@ -58,8 +62,7 @@ public class BookController {
         try {
             log.debug("API get book by id called, id = {}", id);
             BookResponse response = bookService.getById(id);
-            return ResponseEntity.ok(
-                    new ResponseData<>(HttpStatus.OK.value(), "Get book successfully", response));
+            return ResponseEntity.ok(new ResponseData<>(HttpStatus.OK.value(), "Get book successfully", response));
         } catch (BusinessException ex) {
             log.warn("Business error when getting book, id = {}, message = {}", id, ex.getMessage());
             return ResponseEntity.badRequest()
@@ -318,4 +321,41 @@ public class BookController {
                             "Internal server error"));
         }
     }
+    @Operation(
+            summary = "Update image",
+            description = "Upload new image and delete old image if exists"
+    )
+    @PutMapping(value = "/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ResponseData<ImageUpLoadResult>> updateImage(
+            @RequestParam("image") MultipartFile image,
+            @RequestParam(value = "oldPublicId", required = false) String oldPublicId) {
+
+        try {
+            log.info("API update image called - oldPublicId: {}, file: {}",
+                    oldPublicId, image.getOriginalFilename());
+
+            ImageUpLoadResult result =
+                    cloudinaryService.updateImage(image, oldPublicId, "library/books");
+
+            return ResponseEntity.ok(
+                    new ResponseData<>(
+                            HttpStatus.OK.value(),
+                            "Image updated successfully",
+                            result
+                    )
+            );
+        } catch (BusinessException ex) {
+            log.warn("Business error updating image: {}", ex.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new ResponseData<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+        } catch (Exception ex) {
+            log.error("Unexpected error updating image", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ResponseData<>(
+                            HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                            "Internal server error"
+                    ));
+        }
+    }
+
 }

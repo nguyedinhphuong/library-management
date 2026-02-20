@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @Slf4j
-@RequestMapping("/api/vi/stats")
+@RequestMapping("/api/v1/stats")
 @Tag(name = "Statistics Controller")
 @Validated
 @RequiredArgsConstructor

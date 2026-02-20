@@ -3,11 +3,61 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/postgres_test
+    url: jdbc:postgresql://localhost:5432/librarydev2
     username: postgres
-    password: password
+    password: 123456
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: HikariTestPool
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 5MB
+      max-request-size: 10MB
+      file-size-threshold: 2KB
+
+cloudinary:
+  cloud-name: diqhmct8x
+  api-key: 882975888995683
+  api-secret: pPe_4nsUGrKbyLBBl4q4gAPPnY4
+  folder: library/books/
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
 
 open:
   api:
-    serverUrl: http://localhost:${server.port}
-    serverName: Server TEST
+    serverName: "Server TEST"
+    serverUrl: "http://localhost:${server.port}"
+    description: "API for TEST / sandbox environment"
+    title: "API Library Document"
+    version: "1.0.0"
+
+logging:
+  level:
+    com.project.library.service.impl.CloudinaryServiceImpl: DEBUG
+    com.cloudinary: INFO
+
+jwt:
+  # expiryHour: 1
+  # expiryDay: 14
+  # secretKey: adb0e9b17a5d9543cbe63a00b9bdc338c5cd66307a7b34d5990407fe5132810c
+  # refreshKey: c7cb7df6160169f2bfaf6f7c26ef7565e47640d84419bd3e016b3f5bffaacbb9

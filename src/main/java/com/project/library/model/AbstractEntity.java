@@ -18,6 +18,9 @@ public abstract class AbstractEntity<T> implements Serializable{
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "created_by")
+    private String createdBy;
+
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 

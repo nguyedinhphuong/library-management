@@ -81,7 +81,12 @@ public class CloudinaryServiceImpl implements CloudinaryService {
 
     @Override
     public ImageUpLoadResult updateImage(MultipartFile file, String oldPublicId, String folder) {
-        return null;
+        log.info("Updating image - oldPublicId: {}", oldPublicId);
+        ImageUpLoadResult newImage = uploadImage(file, folder);
+        if(oldPublicId != null && !oldPublicId.trim().isEmpty()){
+            deleteImage(oldPublicId);
+        }
+        return newImage;
     }
 
     private String generatePublicId(String folder) {
