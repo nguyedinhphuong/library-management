@@ -1,8 +1,10 @@
 package com.project.library.exception;
 
 import com.project.library.dto.response.ResponseData;
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.protocol.HTTP;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.method.MethodValidationException;
@@ -101,4 +103,19 @@ public class GlobalExceptionHandler {
         return errorResponse;
     }
 
+
+    // --- Filter
+    @ExceptionHandler(ExpiredJwtException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse handleExpiredJwtException(ExpiredJwtException e, WebRequest request) {
+        log.warn("Jwt Expired: {}", e.getMessage());
+
+        ErrorResponse response = new ErrorResponse();
+        response.setTimestamp(new Date());
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        response.setError(" Token expired ");
+        response.setMessage("Vui lòng đăng nhập lại");
+        response.setPath(request.getDescription(false).replace("uri=",""));
+        return response;
+    }
 }

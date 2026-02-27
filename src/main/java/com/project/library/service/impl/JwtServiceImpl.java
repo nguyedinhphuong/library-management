@@ -9,12 +9,14 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -68,6 +70,10 @@ public class JwtServiceImpl implements JwtService {
                 .compact();
     }
     private String generateAccessToken(Map<String, Object> claims, UserDetails userDetails) {
+        List<String> roles = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+        claims.put("roles",roles);
         return buildToken(claims, userDetails,1000 * 60 * 60 * expiryHour, ACCESS_TOKEN); // để 1 tiếng
     }
     private String generateRefreshToken(Map<String, Object> claims, UserDetails userDetails) {

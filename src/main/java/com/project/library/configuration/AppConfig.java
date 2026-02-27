@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -55,11 +56,48 @@ public class AppConfig {
     @Bean
     public SecurityFilterChain configure(@NotNull HttpSecurity http) throws Exception { // thiết lập statless không lưu token ở server
         http.csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(authorizeRequests -> authorizeRequests.requestMatchers(WHITE_LIST).permitAll().anyRequest().authenticated())
+                .authorizeHttpRequests(authorizeRequests -> authorizeRequests
+                        .requestMatchers(WHITE_LIST).permitAll()
+
+                        .requestMatchers("/auth/**").permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me").hasAnyRole("STUDENT", "LIBRARIAN", "ADMIN")
+
+                        // Librarian + Admin quản lý student
+                        .requestMatchers(HttpMethod.POST, "/api/v1/students").hasAnyRole("LIBRARIAN", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/students/**").hasAnyRole("LIBRARIAN", "ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/students/**").hasAnyRole("LIBRARIAN", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/students/bulk-import").hasRole("ADMIN")
+
+                        // Borrow - student tự mượn/trả
+                        .requestMatchers(HttpMethod.POST, "/api/v1/borrows").hasAnyRole("STUDENT", "LIBRARIAN", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/borrows/*/return").hasAnyRole("LIBRARIAN", "ADMIN")
+
+                        // Books - librarian quản lý
+                        .requestMatchers(HttpMethod.GET, "/api/v1/books/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/books/**").hasAnyRole("LIBRARIAN", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/books/**").hasAnyRole("LIBRARIAN", "ADMIN")
+
+                        // Stats - admin only
+                        .requestMatchers("/api/v1/stats/**").hasRole("ADMIN")
+                        .anyRequest().authenticated())
                 .sessionManagement(manager -> manager.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(provider()).addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class); // đứng trước tất cả các API để lọc validate cái token đúng thì cho phép request
         return http.build();
     }
+//@Bean
+//public SecurityFilterChain configure(@NotNull HttpSecurity http) throws Exception {
+//    http.csrf(AbstractHttpConfigurer::disable)
+//            .authorizeHttpRequests(authorize -> authorize
+//                    .requestMatchers(WHITE_LIST).permitAll()
+//                    .anyRequest().authenticated()
+//            )
+//            .sessionManagement(manager -> manager.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+//            .authenticationProvider(provider())
+//            .addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class);
+//
+//    return http.build();
+//}
 
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() {

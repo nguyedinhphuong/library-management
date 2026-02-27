@@ -6,6 +6,7 @@ import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.io.Serializable;
@@ -48,7 +49,10 @@ public class User extends AbstractEntity<Long> implements Serializable, UserDeta
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() { // lấy quyền
-        return List.of();
+        Set<GrantedAuthority> authorities = new HashSet<>();
+        if(roles == null) return List.of();
+        roles.forEach(userHasRole -> authorities.add(new SimpleGrantedAuthority(userHasRole.getRole().getName())));
+        return authorities;
     }
 
     @Override

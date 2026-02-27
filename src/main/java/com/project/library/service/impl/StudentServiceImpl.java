@@ -28,6 +28,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -87,7 +90,17 @@ public class StudentServiceImpl implements StudentService {
     @Transactional(readOnly = true)
     public StudentResponse getById(Long id) {
         log.debug("Fetching student by id = {}", id);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
         Student student = getStudentById(id);
+
+        boolean isStudent = authentication.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_STUDENT"));
+        boolean isAdmin = authentication.getAuthorities().stream().anyMatch(
+                auth->auth.getAuthority().equals("ROLE_ADMIN") || auth.getAuthority().equals("ROLE_LIBRARIAN")
+        );
+        if(isStudent || !student.getUser().getUsername().equals(username)) {
+            throw  new AccessDeniedException("You can not only view your own profile");
+        }
         return StudentMapper.toResponse(student);
     }
 

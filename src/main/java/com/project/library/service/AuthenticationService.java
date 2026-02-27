@@ -4,6 +4,7 @@ import com.project.library.dto.request.auth.SignInRequest;
 import com.project.library.dto.response.TokenResponse;
 import com.project.library.exception.BusinessException;
 import com.project.library.exception.InvalidDataException;
+import com.project.library.model.RedisToken;
 import com.project.library.model.Token;
 import com.project.library.model.User;
 import com.project.library.repository.UserRepository;
@@ -27,7 +28,8 @@ public class AuthenticationService {
     private final UserRepository userRepository;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
-    private final TokenService tokenService;
+    //    private final TokenService tokenService;
+    private final RedisTokenService redisTokenService;
 
     public TokenResponse authenticate(SignInRequest request) {
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
@@ -36,8 +38,13 @@ public class AuthenticationService {
 
         String refreshToken = jwtService.generateRefreshToken(user);
 // save token to db
-        tokenService.save(Token.builder()
-                .username(user.getUsername())
+//        tokenService.save(Token.builder()
+//                .username(user.getUsername())
+//                .accessToken(accessToken)
+//                .refreshToken(refreshToken)
+//                .build());
+        redisTokenService.save(RedisToken.builder()
+                .id(user.getUsername())
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .build());
@@ -61,20 +68,31 @@ public class AuthenticationService {
         final String userName = jwtService.extractUsername(refreshToken, TokenType.REFRESH_TOKEN);
         log.info("username {}", userName);
         // check into db
-        Optional<User> user = userRepository.findByUsername(userName);
-        System.out.println("userId: " + user.get().getId());
+        User user = userRepository.findByUsername(userName)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        System.out.println("userId: " + user.getId());
+
+        RedisToken redisToken = redisTokenService.getByUsername(userName);
+        if(!redisToken.getRefreshToken().equals(refreshToken)){
+            throw new InvalidDataException("Refresh token does not match");
+        }
 
         // validate
-        if (!jwtService.isValid(refreshToken, user.get(), TokenType.REFRESH_TOKEN)) {
+        if (!jwtService.isValid(refreshToken, user, TokenType.REFRESH_TOKEN)) {
             throw new InvalidDataException("Token invalid");
         }
 
         // gen ra new access token
-        String accessToken = jwtService.generateToken(user.get());
+        String accessToken = jwtService.generateToken(user);
+        redisTokenService.save(RedisToken.builder()
+                .id(user.getUsername())
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build());
         return TokenResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
-                .userId(user.get().getId())
+                .userId(user.getId())
                 .build();
     }
 
@@ -85,9 +103,10 @@ public class AuthenticationService {
         if (StringUtils.isBlank(refreshToken)) {
             throw new InvalidDataException("Token must be not blank");
         }
-        final String username = jwtService.extractUsername(refreshToken, TokenType.ACCESS_TOKEN);
-        Token currentToken = tokenService.getByUsername(username);
-        tokenService.delete(currentToken);
+        final String username = jwtService.extractUsername(refreshToken, TokenType.REFRESH_TOKEN);
+//        Token currentToken = tokenService.getByUsername(username);
+//        tokenService.delete(currentToken);
+        redisTokenService.delete(username);
         return "Deleted";
     }
 }

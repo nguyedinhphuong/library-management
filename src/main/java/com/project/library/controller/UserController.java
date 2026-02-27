@@ -36,6 +36,7 @@ public class UserController {
 
     private final UserService userService;
 
+
     @GetMapping(value = "/me", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("isAuthenticated()")
     @Operation(

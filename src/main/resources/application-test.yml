@@ -57,7 +57,7 @@ logging:
     com.cloudinary: INFO
 
 jwt:
-  # expiryHour: 1
-  # expiryDay: 14
-  # secretKey: adb0e9b17a5d9543cbe63a00b9bdc338c5cd66307a7b34d5990407fe5132810c
-  # refreshKey: c7cb7df6160169f2bfaf6f7c26ef7565e47640d84419bd3e016b3f5bffaacbb9
+  expiryHour: 1
+  expiryDay: 14
+  secretKey: adb0e9b17a5d9543cbe63a00b9bdc338c5cd66307a7b34d5990407fe5132810c
+  refreshKey: c7cb7df6160169f2bfaf6f7c26ef7565e47640d84419bd3e016b3f5bffaacbb9
